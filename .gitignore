@@ -15,7 +15,13 @@ dist/
 *.egg-info/
 *.egg
 
+# Local virtual environments and temp outputs
+.venv/
+tmp/
+
+# Editor settings
+.vscode/
+
 # Experiment outputs (figures and results)
 experiments/Figs/
 experiments/results.csv
-

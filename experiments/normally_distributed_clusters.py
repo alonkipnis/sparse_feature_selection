@@ -3,7 +3,7 @@
 Reproduce the experiments from the notebook:
   ../transfer-learning-with-feature-selection/Code/normally distributed clusters.ipynb
 
-Adapted to run fully within this CentSim repository, using the local
+Adapted to run fully within this repository (sparse_feature_selection), using the local
 `centroid_similarity` implementation and saving figures under experiments/Figs.
 
 Two experiment groups are implemented:

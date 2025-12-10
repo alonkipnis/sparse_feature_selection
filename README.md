@@ -4,14 +4,14 @@ CentroidSimilarity includes two main classes:
 - CentroidSimilarity
 - CentroidSimilarityFeatureSelection
 
-In the training phase, we evalaute the per-coordinate mean and standard deviaion of each class.
-CentroidSimilarityFeatureSelection also identifies coordiantes distinguishing the classes and masks 
-the non distinguishing ones. This identification is done using one of the methods 'one_vs_many' or
+In the training phase, we evaluate the per-coordinate mean and standard deviation of each class.
+CentroidSimilarityFeatureSelection also identifies coordinates distinguishing the classes and masks
+the non-distinguishing ones. This identification is done using one of the methods 'one_vs_all' or
 'diversity_pursuit'.
 
 ## Example:
 ```
-from CentroidSimilarity import CentroidSimilarityFeatureSelection, CentroidSimilarity
+from centroid_similarity import CentroidSimilarityFeatureSelection, CentroidSimilarity
 
 c = 2
 n = 100
@@ -84,11 +84,12 @@ Customizable arguments:
 
 ### Make targets
 
-Alternatively, use the provided Makefile targets:
+Alternatively, use the provided Makefile targets (pass extra CLI via `ARGS`):
 
 ```
 make install-exp                  # pip install experiment deps
 make quick-exp OUTDIR=tmp/figs    # fast sanity run (seeded); custom OUTDIR optional
+make quick-exp ARGS="--p 2000 --beta-steps 4"  # override defaults
 make exp ARGS="--seed 0"          # full run (can pass extra ARGS)
 make exp-csv RESULTS=tmp/res.csv  # full run and save results CSV
 make quick-csv RESULTS=tmp/res.csv  # quick run and save results CSV

@@ -18,17 +18,34 @@ matplotlib.use('Agg')  # Use non-interactive backend for saving figures
 import matplotlib.pyplot as plt
 import seaborn as sns
 from tqdm import tqdm
-from sklearn.metrics import pairwise_distances
 from multitest import MultiTest
+import argparse
 
-# Add parent directory to path to import modules
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from CentroidSimilarity import CentroidSimilarity, CentroidSimilarityFeatureSelection
-from utils import synthetic_data_gen
+# Prefer local package `centroid_similarity`; add repo root to sys.path if needed
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
 
-# Create Figs directory if it doesn't exist
-FIGS_DIR = os.path.join(os.path.dirname(__file__), 'Figs')
-os.makedirs(FIGS_DIR, exist_ok=True)
+try:
+    # Local package (preferred)
+    from centroid_similarity import CentroidSimilarity, CentroidSimilarityFeatureSelection
+except Exception:
+    # Fallback: in case older layout is used
+    from CentroidSimilarity import CentroidSimilarity, CentroidSimilarityFeatureSelection
+
+# Synthetic data generators live in normally_distributed_clusters
+try:
+    from experiments.normally_distributed_clusters import (
+        sample_centroids, sample_normal_clusters, pairwise_distances_euclidean
+    )
+except Exception:
+    # If running from experiments/, relative import may differ
+    from normally_distributed_clusters import (
+        sample_centroids, sample_normal_clusters, pairwise_distances_euclidean
+    )
+
+def _default_figs_dir():
+    return os.path.join(os.path.dirname(__file__), 'Figs')
 
 
 def print_method_descriptions():
@@ -96,16 +113,16 @@ def atomic_exp(p, n, c, sig, mu, eps, test_frac):
     Dictionary with experiment results
     """
     # Generate synthetic data
-    centroids = synthetic_data_gen.sample_centroids(
-        num_classes=c, 
-        num_features=p, 
-        eps=eps, 
-        power=mu, 
+    centroids = sample_centroids(
+        num_classes=c,
+        num_features=p,
+        eps=eps,
+        power=mu,
         non_nulls_location='fixed'
     )
     true_mask = centroids != 0
     
-    X, y = synthetic_data_gen.sample_normal_clusters(centroids, n, sig)
+    X, y = sample_normal_clusters(centroids, n, sig)
     
     # Split into train and test
     train_split_mask = np.random.rand(len(X)) > test_frac
@@ -115,7 +132,8 @@ def atomic_exp(p, n, c, sig, mu, eps, test_frac):
     y_test = y[~train_split_mask]
     
     # Calculate distance statistics
-    dist_mat = pairwise_distances(centroids)
+    # Use local Euclidean pairwise distances implementation
+    dist_mat = pairwise_distances_euclidean(centroids)
     mat_idx = [(i, j) for i in range(len(dist_mat)) for j in range(len(dist_mat)) if i < j]
     delta_mean = np.mean([dist_mat[p] for p in mat_idx])
     delta_min = np.min(dist_mat + 1e9 * np.eye(len(dist_mat)))
@@ -166,7 +184,7 @@ def atomic_exp(p, n, c, sig, mu, eps, test_frac):
     return dict({
         'naive': acc_naive,
         'OvA': acc_OvA,
-        'DivPersuit': acc_DP,
+        'DivPursuit': acc_DP,
         'acc_oracle_thr': acc_oracle_t,
         'cs_oracle_mu': acc_oracle_mu,
         'hc_OvA': hc_OvA,
@@ -187,35 +205,101 @@ def rho(beta):
     """Phase transition curve function."""
     return ((1 - np.sqrt(1 - beta)) ** 2) * (beta >= .75) + (beta - 1/2) * (beta < .75)
 
+def parse_args():
+    ap = argparse.ArgumentParser(description='Run centroid similarity experiments')
+    # Core params
+    ap.add_argument('--p', type=int, default=None, help='Number of features')
+    ap.add_argument('--n', type=int, default=None, help='Number of samples')
+    ap.add_argument('--c', type=int, default=None, help='Number of classes')
+    ap.add_argument('--sig', type=float, default=None, help='Noise std dev')
+    ap.add_argument('--test-frac', type=float, default=None, help='Test split fraction')
+    # Grid params
+    ap.add_argument('--beta-start', type=float, default=None, help='Beta grid start')
+    ap.add_argument('--beta-stop', type=float, default=None, help='Beta grid stop')
+    ap.add_argument('--beta-steps', type=int, default=None, help='Beta grid steps')
+    ap.add_argument('--r-start', type=float, default=None, help='r grid start')
+    ap.add_argument('--r-stop', type=float, default=None, help='r grid stop')
+    ap.add_argument('--r-steps', type=int, default=None, help='r grid steps')
+    ap.add_argument('--nMonte', type=int, default=None, help='Monte Carlo iterations per grid point')
+    # Misc
+    ap.add_argument('--seed', type=int, default=None, help='Random seed')
+    ap.add_argument('--outdir', type=str, default=None, help='Output directory for figures')
+    ap.add_argument('--save-csv', type=str, default=None, help='Optional path to save results CSV')
+    ap.add_argument('--quick', action='store_true', help='Quick mode (smaller grids and iterations)')
+    return ap.parse_args()
+
 
 def main():
     """Main function to run experiments and generate figures."""
+    args = parse_args()
+    if args.seed is not None:
+        np.random.seed(args.seed)
+
+    # Defaults (full)
+    defaults = dict(
+        p=10000,
+        c=10,
+        sig=1.0,
+        test_frac=0.2,
+        beta_start=0.5,
+        beta_stop=0.9,
+        beta_steps=5,
+        r_start=0.01,
+        r_stop=0.3,
+        r_steps=7,
+        nMonte=10,
+    )
+    # Quick overrides (only applied when not specified by user)
+    quick_overrides = dict(
+        p=1000,
+        c=5,
+        beta_steps=3,
+        r_steps=4,
+        nMonte=1,
+    )
+
+    def pick(name):
+        attr = name.replace('-', '_') if '-' in name else name
+        val = getattr(args, attr)
+        if val is not None:
+            return val
+        if args.quick and name in quick_overrides:
+            return quick_overrides[name]
+        return defaults[name]
+
+    p = int(pick('p'))
+    n = int(args.n) if args.n is not None else int(2 * np.log(p) ** 2)
+    c = int(pick('c'))
+    sig = float(pick('sig'))
+    test_frac = float(pick('test_frac'))
+    beta_start = float(pick('beta_start'))
+    beta_stop = float(pick('beta_stop'))
+    beta_steps = int(pick('beta_steps'))
+    r_start = float(pick('r_start'))
+    r_stop = float(pick('r_stop'))
+    r_steps = int(pick('r_steps'))
+    nMonte = int(pick('nMonte'))
+
+    bb = np.linspace(beta_start, beta_stop, beta_steps)
+    rr = np.linspace(r_start, r_stop, r_steps)
+
+    # Output directory
+    global figs_dir
+    figs_dir = args.outdir or _default_figs_dir()
+    os.makedirs(figs_dir, exist_ok=True)
+
     print_method_descriptions()
-    
-    # Experiment parameters
-    p = 10000
-    n = int(2 * np.log(p) ** 2)
-    c = 10
-    sig = 1
-    r = .05 * c
-    beta = .7
-    test_frac = .2
-    
-    # Parameter ranges for grid search
-    bb = np.linspace(0.5, 0.9, 5)
-    rr = np.linspace(0.01, 0.3, 7)
-    nMonte = 10
-    
     print(f"\nRunning experiments with:")
     print(f"  - Features (p): {p}")
     print(f"  - Samples (n): {n}")
     print(f"  - Classes (c): {c}")
     print(f"  - Monte Carlo iterations: {nMonte}")
-    print(f"  - Beta range: {bb[0]:.2f} to {bb[-1]:.2f}")
-    print(f"  - r range: {rr[0]:.3f} to {rr[-1]:.3f}")
-    print(f"\nTotal experiments: {nMonte * len(bb) * len(rr)}")
+    print(f"  - Beta range: {bb[0]:.2f} to {bb[-1]:.2f} ({beta_steps} steps)")
+    print(f"  - r range: {rr[0]:.3f} to {rr[-1]:.3f} ({r_steps} steps)")
+    total = nMonte * len(bb) * len(rr)
+    print(f"\nTotal experiments: {total}")
     print("\nStarting experiments...\n")
-    
+
     # Run experiments
     res = []
     for itr in tqdm(range(nMonte), desc="Monte Carlo iterations"):
@@ -226,17 +310,21 @@ def main():
                 res_atom = atomic_exp(p, n, c, sig, mu, eps, test_frac)
                 res_atom['itr'] = itr
                 res.append(res_atom)
-    
+
     df = pd.DataFrame(res)
-    
+
     print(f"\nExperiments completed! Results shape: {df.shape}")
     print(f"\nMean accuracies:")
-    methods = ['naive', 'OvA', 'DivPersuit', 'cs_oracle_mu']
+    methods = ['naive', 'OvA', 'DivPursuit', 'cs_oracle_mu']
     for method in methods:
         print(f"  {method}: {df[method].mean():.4f}")
-    
-    # Create figures directory
-    os.makedirs(FIGS_DIR, exist_ok=True)
+
+    # Save CSV if requested
+    if args.save_csv:
+        out_csv = os.path.abspath(args.save_csv)
+        os.makedirs(os.path.dirname(out_csv), exist_ok=True)
+        df.to_csv(out_csv, index=False)
+        print(f"Saved results CSV to: {out_csv}")
     
     # Figure 1: Bar plot of mean accuracies
     print("\nGenerating Figure 1: Mean accuracy comparison...")
@@ -247,7 +335,7 @@ def main():
     plt.xlabel("Method", fontsize=12)
     plt.title("Mean Accuracy of Each Classification Method", fontsize=14)
     plt.tight_layout()
-    fig_path = os.path.join(FIGS_DIR, 'mean_accuracy_comparison.png')
+    fig_path = os.path.join(figs_dir, 'mean_accuracy_comparison.png')
     plt.savefig(fig_path, dpi=300, bbox_inches='tight')
     plt.close()
     print(f"  Saved to: {fig_path}")
@@ -275,7 +363,7 @@ def main():
         g.set_ylabel(r'$r$', fontsize=12)
         g.set_yticklabels([f'{r:.3f}' for r in rr[::-1]])
         plt.tight_layout()
-        fig_path = os.path.join(FIGS_DIR, f'{val}.png')
+        fig_path = os.path.join(figs_dir, f'{val}.png')
         plt.savefig(fig_path, dpi=300, bbox_inches='tight')
         plt.close()
         print(f"    Saved to: {fig_path}")
@@ -291,17 +379,16 @@ def main():
     plt.title('Phase Transition Curve', fontsize=14)
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    fig_path = os.path.join(FIGS_DIR, 'phase_transition_curve.png')
+    fig_path = os.path.join(figs_dir, 'phase_transition_curve.png')
     plt.savefig(fig_path, dpi=300, bbox_inches='tight')
     plt.close()
     print(f"  Saved to: {fig_path}")
     
     print("\n" + "="*80)
     print("All experiments completed and figures saved!")
-    print(f"Figures saved to: {FIGS_DIR}")
+    print(f"Figures saved to: {figs_dir}")
     print("="*80 + "\n")
 
 
 if __name__ == '__main__':
     main()
-

@@ -1,7 +1,15 @@
-Metadata-Version: 2.1
-Name: centroid-similarity
+Metadata-Version: 2.4
+Name: centroid_similarity
 Version: 0.1.6
 Summary: multilabel classification using averaging and feature selection
 Home-page: https://cs.idc.ac.il/~kipnis/
 Author: Alon Kipnis
 Author-email: alon.kipnis@runi.ac.il
+Requires-Dist: numpy
+Requires-Dist: scipy
+Requires-Dist: multiple-hypothesis-testing
+Dynamic: author
+Dynamic: author-email
+Dynamic: home-page
+Dynamic: requires-dist
+Dynamic: summary

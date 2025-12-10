@@ -1,0 +1,21 @@
+# OS-specific
+.DS_Store
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Packaging / build artifacts
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Experiment outputs (figures and results)
+experiments/Figs/
+experiments/results.csv
+

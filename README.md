@@ -46,3 +46,59 @@ print("Accuracy (feature selection) = ", np.mean(y_pred_fs == y_test))
 
 
 ```
+
+## Experiments
+
+To reproduce the synthetic experiments and figures used during development, run:
+
+```
+python3 experiments/run_centroid_similarity_experiments.py
+```
+
+Figures are saved under `experiments/Figs/`.
+
+Optional: install experiment dependencies in your environment:
+
+```
+pip install -r experiments/requirements.txt
+```
+
+Quick run for faster verification (smaller grids and iterations):
+
+```
+python3 experiments/run_centroid_similarity_experiments.py --quick --seed 0
+```
+
+Customizable arguments:
+- `--p` number of features (default 10000; reduced if `--quick`)
+- `--n` number of samples (default: `int(2*log(p)^2)`)
+- `--c` number of classes (default 10; 5 with `--quick`)
+- `--sig` noise standard deviation (default 1.0)
+- `--test-frac` test split fraction (default 0.2)
+- `--beta-start/--beta-stop/--beta-steps` grid for beta (default 0.5–0.9, 5 steps)
+- `--r-start/--r-stop/--r-steps` grid for r (default 0.01–0.3, 7 steps)
+- `--nMonte` Monte Carlo iterations per grid point (default 10; 1 with `--quick`)
+- `--seed` random seed
+- `--outdir` output directory for figures (default `experiments/Figs`)
+- `--save-csv` path to save a CSV of the results dataframe
+
+### Make targets
+
+Alternatively, use the provided Makefile targets:
+
+```
+make install-exp                  # pip install experiment deps
+make quick-exp OUTDIR=tmp/figs    # fast sanity run (seeded); custom OUTDIR optional
+make exp ARGS="--seed 0"          # full run (can pass extra ARGS)
+make exp-csv RESULTS=tmp/res.csv  # full run and save results CSV
+make quick-csv RESULTS=tmp/res.csv  # quick run and save results CSV
+make clean                        # remove OUTDIR and RESULTS (defaults)
+```
+
+### Notes
+
+- The Makefile prefers the project's `.venv/bin/python` if it exists; otherwise it falls back to `python3`.
+- If you see Matplotlib cache warnings, set a writable cache dir (optional but recommended):
+  - `export MPLCONFIGDIR=.cache/matplotlib`
+- For a one-off quick run without Makefile:
+  - `.venv/bin/python experiments/run_centroid_similarity_experiments.py --quick --seed 0`

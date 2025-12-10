@@ -3,6 +3,7 @@ setup.py
 centroid_similarity/CentroidSimilarity.py
 centroid_similarity/MultiClassStats.py
 centroid_similarity/__init__.py
+centroid_similarity/multitest.py
 centroid_similarity.egg-info/PKG-INFO
 centroid_similarity.egg-info/SOURCES.txt
 centroid_similarity.egg-info/dependency_links.txt

@@ -1,0 +1,17 @@
+# Requirements for Centroid Similarity Feature Selection Experiments
+# Generated for run_centroid_similarity_experiments.py
+# Core scientific computing
+numpy>=1.20.0,<3.0.0
+scipy>=1.9.0
+# Data manipulation and analysis
+pandas>=1.2.0
+# Machine learning
+scikit-learn>=1.0.0
+# Statistical testing using higher criticism
+multiple-hypothesis-testing>=0.2.0
+# Visualization
+matplotlib>=3.4.0
+seaborn>=0.11.0
+
+tqdm>=4.60.0
+
